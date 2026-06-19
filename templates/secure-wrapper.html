@@ -36,38 +36,75 @@
     button:hover{background:#4f46e5}
     button:disabled{opacity:.6;cursor:default}
     .err{color:#fca5a5;font-size:13.5px;margin:14px 0 0;min-height:1.2em}
+    .remember{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;color:#94a3b8;font-size:13px;cursor:pointer}
+    .remember input{width:auto;margin:0}
+    .spinner{display:none}
+    .loading .form{display:none}
+    .loading .spinner{display:block;color:#94a3b8;font-size:14px;margin-top:6px}
   </style>
 </head>
 <body>
-  <main class="card">
+  <main class="card" id="card">
     <div class="lock">🔒</div>
     <h1>Protected document</h1>
-    <p class="sub">Enter the password to view this page.</p>
-    <form id="form" autocomplete="off">
-      <input id="pw" type="password" autocomplete="off" autofocus placeholder="Password" aria-label="Password">
+    <p class="sub" id="sub">Enter the password to view this page.</p>
+    <form id="form" class="form" autocomplete="off">
+      <input id="pw" type="password" autocomplete="current-password" autofocus placeholder="Password" aria-label="Password">
       <button id="btn" type="submit">Unlock</button>
+      <label class="remember"><input type="checkbox" id="remember" checked> Keep me unlocked on this device</label>
       <p class="err" id="err" role="alert"></p>
     </form>
+    <div class="spinner" id="spinner">Unlocking…</div>
   </main>
 
   <script id="desk-payload" type="application/json">__DESK_PAYLOAD__</script>
   <script>
   (function () {
     var cfg = JSON.parse(document.getElementById('desk-payload').textContent);
+    var card = document.getElementById('card');
     var form = document.getElementById('form');
     var pw = document.getElementById('pw');
     var err = document.getElementById('err');
     var btn = document.getElementById('btn');
+    var sub = document.getElementById('sub');
+    var rememberBox = document.getElementById('remember');
+    var KEY = 'desk-unlock:' + location.pathname;
 
     function b64ToBytes(b64) {
       var bin = atob(b64), out = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
       return out;
     }
+    function getSaved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function save(p) { try { localStorage.setItem(KEY, p); } catch (e) {} }
+    function forget() { try { localStorage.removeItem(KEY); } catch (e) {} }
+
+    async function decrypt(password) {
+      var enc = new TextEncoder();
+      var baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+      var key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: b64ToBytes(cfg.salt), iterations: cfg.iter, hash: 'SHA-256' },
+        baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      var ptBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: b64ToBytes(cfg.iv) }, key, b64ToBytes(cfg.ct));
+      return new TextDecoder().decode(ptBuf);
+    }
+    function render(htmlText) { document.open(); document.write(htmlText); document.close(); }
 
     if (!(window.crypto && window.crypto.subtle)) {
       err.textContent = 'This browser cannot decrypt the page (open it over https).';
       return;
+    }
+
+    // Already unlocked on this device? Decrypt silently — no prompt on refresh.
+    var saved = getSaved();
+    if (saved) {
+      card.classList.add('loading');
+      decrypt(saved).then(render).catch(function () {
+        forget();
+        card.classList.remove('loading');
+        pw.focus();
+      });
     }
 
     form.addEventListener('submit', async function (e) {
@@ -75,16 +112,9 @@
       err.textContent = '';
       btn.disabled = true; btn.textContent = 'Unlocking…';
       try {
-        var enc = new TextEncoder();
-        var baseKey = await crypto.subtle.importKey(
-          'raw', enc.encode(pw.value), 'PBKDF2', false, ['deriveKey']);
-        var key = await crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt: b64ToBytes(cfg.salt), iterations: cfg.iter, hash: 'SHA-256' },
-          baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-        var ptBuf = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: b64ToBytes(cfg.iv) }, key, b64ToBytes(cfg.ct));
-        var html = new TextDecoder().decode(ptBuf);
-        document.open(); document.write(html); document.close();
+        var htmlText = await decrypt(pw.value);
+        if (rememberBox.checked) save(pw.value); else forget();
+        render(htmlText);
       } catch (ex) {
         err.textContent = 'Wrong password — try again.';
         btn.disabled = false; btn.textContent = 'Unlock';
