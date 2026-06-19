@@ -30,7 +30,7 @@ bin/            publish · unpublish · new · setup   (the only commands you ru
 bin/lib/        encrypt.mjs — zero-dep AES-GCM encryptor (Web Crypto)
 templates/      page.html (base doc) · secure-wrapper.html (browser decrypt shell)
 work/           PRIVATE, local-only. Drafts by domain: building/ architecture/ sales/ misc/
-work/.desk/     passwords.json — per-slug passwords, git-ignored
+work/.desk/     passwords.json — ONE shared memorable password (key `_house`) + per-page records, git-ignored
 docs/           PUBLIC. Encrypted published pages only. Served by GitHub Pages from /docs
 desk.config.json  owner/repo/pagesBase used to build share URLs
 ```
@@ -40,7 +40,7 @@ desk.config.json  owner/repo/pagesBase used to build share URLs
 ```bash
 bin/new <domain/path> <slug> ["Title"]   # scaffold work/<domain>/<slug>.html from template
 bin/publish <input.html> <slug>          # encrypt → docs/<slug>.html → commit → push → print link+password
-bin/publish <input.html> <slug> --password <pw>   # set a specific password
+bin/publish <input.html> <slug> --password <pw>   # set/replace the ONE shared memorable password (used for every page)
 bin/unpublish <slug>                     # remove the page, push; link goes dead
 bin/setup [<git-remote-url>]             # one-time GitHub connection (no arg = print instructions)
 ```

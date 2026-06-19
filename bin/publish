@@ -3,9 +3,10 @@
 //
 //   bin/publish <input.html> <slug> [--password <pw>]
 //
-// - Encrypts the file with a password (auto-generated and remembered the
-//   first time, reused on every later publish so the URL + password stay
-//   stable for whoever you shared them with).
+// - Encrypts the file with ONE friendly, memorable password shared across ALL
+//   your pages — so you (and colleagues) only ever remember a single password.
+//   Set your own with --password "your phrase"; otherwise a memorable word-style
+//   password is generated the first time and reused everywhere after.
 // - Writes the encrypted page to docs/<slug>.html, commits, and pushes.
 // - Prints the shareable link and the password.
 import { webcrypto as crypto } from 'node:crypto';
@@ -27,13 +28,16 @@ function git(args, opts = {}) {
   return out == null ? '' : out.toString().trim();
 }
 
-function genPassword() {
-  // Readable: lowercase + digits, no ambiguous chars (no i l o 0 1).
-  const alpha = 'abcdefghjkmnpqrstuvwxyz23456789';
-  const bytes = crypto.getRandomValues(new Uint8Array(12));
-  let s = '';
-  for (const b of bytes) s += alpha[b % alpha.length];
-  return `${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}`;
+function genFriendly() {
+  // Memorable word-style password: adjective-animal-number. Easy to say, share
+  // and recall. You'll usually set your own with --password instead.
+  const adj = ['amber', 'brave', 'calm', 'swift', 'sunny', 'clever', 'golden',
+               'happy', 'lucky', 'bright', 'mighty', 'gentle', 'royal', 'noble'];
+  const animal = ['otter', 'falcon', 'tiger', 'heron', 'panda', 'lynx', 'dolphin',
+                  'raven', 'koala', 'puma', 'crane', 'seal', 'fox', 'ibex'];
+  const r = crypto.getRandomValues(new Uint8Array(3));
+  const n = 10 + (r[2] % 90);
+  return `${adj[r[0] % adj.length]}-${animal[r[1] % animal.length]}-${n}`;
 }
 
 function loadStore() {
@@ -61,13 +65,19 @@ if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
 const absInput = resolve(ROOT, inputPath);
 if (!existsSync(absInput)) die(`input file not found: ${inputPath}`);
 
-// ── password (reuse > forced > generate) ────────────────────────────
+// ── url + password (reuse > forced > generate) ──────────────────────
+const cfg = JSON.parse(readFileSync(join(ROOT, 'desk.config.json'), 'utf8'));
+const url = `${cfg.pagesBase}/${slug}.html`;
+
 const store = loadStore();
-let password = store[slug];
+const HOUSE = '_house';                 // the single shared password for every page
+let house = typeof store[HOUSE] === 'string' ? store[HOUSE] : store[HOUSE] && store[HOUSE].password;
 let freshPassword = false;
-if (forced) { password = forced; }
-if (!password) { password = genPassword(); freshPassword = true; }
-store[slug] = password;
+if (forced) { house = forced; }         // --password sets/replaces the shared password
+if (!house) { house = genFriendly(); freshPassword = true; }  // friendly default, first time only
+store[HOUSE] = house;
+const password = house;                 // same memorable password across all pages
+store[slug] = { url, password };        // per-page record (kept for reference)
 saveStore(store);
 
 // ── encrypt ─────────────────────────────────────────────────────────
@@ -94,12 +104,11 @@ try {
 }
 
 // ── report ──────────────────────────────────────────────────────────
-const cfg = JSON.parse(readFileSync(join(ROOT, 'desk.config.json'), 'utf8'));
-const url = `${cfg.pagesBase}/${slug}.html`;
-
 console.log('\n✓ Encrypted page written to docs/' + slug + '.html');
 console.log('\n  Link:     ' + url);
-console.log('  Password: ' + password + (freshPassword ? '  (new — save this)' : '  (reused)'));
+console.log('  Password: ' + password + (freshPassword
+  ? '  (your memorable password — used for every page; save it)'
+  : '  (your shared password)'));
 if (pushed) {
   console.log('\n  Live in ~1 min (GitHub Pages build). Send the link and password separately.');
 } else if (!hasRemote) {
