@@ -1,0 +1,19 @@
+# ── Privacy: your raw working files NEVER leave your Mac ──────────────
+# Everything under work/ is local-only. Drafts, real numbers, notes,
+# and the password store all live here and are never pushed to GitHub.
+work/
+
+# Private to this Mac — never pushed (README stays local; spreadsheets never leave)
+README.md
+*.xlsx
+*.xls
+
+# OS / editor noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*

@@ -1,0 +1,6 @@
+{
+  "owner": "eneag-sf",
+  "repo": "desk",
+  "pagesBase": "https://eneagjoka.com/desk",
+  "_note": "Served via the apex custom domain eneagjoka.com (CNAME lives in the eneag-sf.github.io user-site repo). Links only work over https once 'Enforce HTTPS' is on — required for in-browser decryption."
+}

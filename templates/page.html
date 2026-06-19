@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <style>
+    :root{
+      --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#ffffff;
+      --accent:#4f46e5; --soft:#f8fafc;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--soft);color:var(--ink);
+      font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    }
+    .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px}
+    .doc{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:44px 48px;
+         box-shadow:0 1px 3px rgba(15,23,42,.04)}
+    header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+    .eyebrow{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:650}
+    h1{font-size:27px;line-height:1.25;margin:8px 0 6px}
+    .meta{color:var(--muted);font-size:14px}
+    h2{font-size:18px;margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+    p{margin:0 0 14px}
+    table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14.5px}
+    th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+    th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+    @media(max-width:560px){.doc{padding:28px 20px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <article class="doc">
+      <header>
+        <div class="eyebrow">{{EYEBROW}}</div>
+        <h1>{{TITLE}}</h1>
+        <div class="meta">{{DATE}} · Enea Gjoka</div>
+      </header>
+
+      <p>Replace this with your content.</p>
+
+      <footer>Confidential — shared on request. Do not redistribute.</footer>
+    </article>
+  </div>
+</body>
+</html>

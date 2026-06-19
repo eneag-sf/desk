@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+// Take a published page offline.
+//
+//   bin/unpublish <slug>
+//
+// Removes docs/<slug>.html, commits, and pushes. The link goes dead.
+// The saved password is kept so you can republish later with the same one.
+import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+function die(msg) { console.error('\n✗ ' + msg + '\n'); process.exit(1); }
+function git(args, opts = {}) {
+  // execFileSync returns null when stdio is 'inherit' (output goes to the
+  // terminal, not captured), so guard before calling .trim().
+  const out = execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', ...opts });
+  return out == null ? '' : out.toString().trim();
+}
+
+const slug = process.argv[2];
+if (!slug) die('usage: bin/unpublish <slug>');
+
+const rel = join('docs', `${slug}.html`);
+if (!existsSync(join(ROOT, rel))) die(`not published: docs/${slug}.html does not exist`);
+
+git(['rm', rel]);
+git(['commit', '-m', `unpublish: ${slug}`]);
+
+let pushed = false;
+try { git(['remote', 'get-url', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); pushed = true; }
+catch { pushed = false; }
+if (pushed) git(['push', 'origin', 'HEAD'], { stdio: 'inherit' });
+
+console.log(`\n✓ ${slug} unpublished.` + (pushed
+  ? ' The link will 404 within ~1 min.'
+  : ' Committed locally (no GitHub remote yet).') + '\n');

@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// One-time GitHub connection helper.
+//
+//   bin/setup                      → print step-by-step instructions
+//   bin/setup <git-remote-url>     → wire the remote and push everything
+//
+// Example:
+//   bin/setup https://github.com/eneag-sf/desk.git
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const cfg = JSON.parse(readFileSync(join(ROOT, 'desk.config.json'), 'utf8'));
+function git(args, opts = {}) {
+  // execFileSync returns null when stdio is 'inherit' (output goes to the
+  // terminal, not captured), so guard before calling .trim().
+  const out = execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', ...opts });
+  return out == null ? '' : out.toString().trim();
+}
+
+const url = process.argv[2];
+
+if (!url) {
+  console.log(`
+Connect this workspace to GitHub (one time):
+
+  1. Create an EMPTY repo named "${cfg.repo}" at:
+       https://github.com/new
+     • Owner: ${cfg.owner}    • Visibility: Public
+     • Do NOT add a README, .gitignore, or license.
+
+  2. Back here, run:
+       bin/setup https://github.com/${cfg.owner}/${cfg.repo}.git
+
+  3. Turn on GitHub Pages:
+       https://github.com/${cfg.owner}/${cfg.repo}/settings/pages
+     • Source: "Deploy from a branch"
+     • Branch: main   • Folder: /docs   → Save
+
+  After that your published pages live at:
+       ${cfg.pagesBase}/<slug>.html
+`);
+  process.exit(0);
+}
+
+try { git(['remote', 'remove', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); } catch {}
+git(['remote', 'add', 'origin', url]);
+git(['branch', '-M', 'main']);
+git(['push', '-u', 'origin', 'main'], { stdio: 'inherit' });
+
+console.log(`
+✓ Pushed to ${url}
+
+Last step — turn on GitHub Pages:
+  https://github.com/${cfg.owner}/${cfg.repo}/settings/pages
+  Source: "Deploy from a branch" · Branch: main · Folder: /docs · Save
+
+Then everything you publish is live at ${cfg.pagesBase}/<slug>.html
+`);

@@ -1,0 +1,108 @@
+#!/usr/bin/env node
+// Publish a local HTML file as a password-protected page on GitHub Pages.
+//
+//   bin/publish <input.html> <slug> [--password <pw>]
+//
+// - Encrypts the file with a password (auto-generated and remembered the
+//   first time, reused on every later publish so the URL + password stay
+//   stable for whoever you shared them with).
+// - Writes the encrypted page to docs/<slug>.html, commits, and pushes.
+// - Prints the shareable link and the password.
+import { webcrypto as crypto } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { encryptHtml } from './lib/encrypt.mjs';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SECRETS = join(ROOT, 'work', '.desk', 'passwords.json');
+
+function die(msg) { console.error('\n✗ ' + msg + '\n'); process.exit(1); }
+
+function git(args, opts = {}) {
+  // execFileSync returns null when stdio is 'inherit' (output goes to the
+  // terminal, not captured), so guard before calling .trim().
+  const out = execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', ...opts });
+  return out == null ? '' : out.toString().trim();
+}
+
+function genPassword() {
+  // Readable: lowercase + digits, no ambiguous chars (no i l o 0 1).
+  const alpha = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  let s = '';
+  for (const b of bytes) s += alpha[b % alpha.length];
+  return `${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}`;
+}
+
+function loadStore() {
+  try { return JSON.parse(readFileSync(SECRETS, 'utf8')); } catch { return {}; }
+}
+function saveStore(store) {
+  mkdirSync(dirname(SECRETS), { recursive: true });
+  writeFileSync(SECRETS, JSON.stringify(store, null, 2) + '\n');
+}
+
+// ── args ────────────────────────────────────────────────────────────
+const argv = process.argv.slice(2);
+let inputPath, slug, forced;
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === '--password') { forced = argv[++i]; }
+  else if (!inputPath) { inputPath = argv[i]; }
+  else if (!slug) { slug = argv[i]; }
+}
+if (!inputPath || !slug) {
+  die('usage: bin/publish <input.html> <slug> [--password <pw>]');
+}
+if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+  die(`slug "${slug}" must be lowercase letters, digits and dashes only`);
+}
+const absInput = resolve(ROOT, inputPath);
+if (!existsSync(absInput)) die(`input file not found: ${inputPath}`);
+
+// ── password (reuse > forced > generate) ────────────────────────────
+const store = loadStore();
+let password = store[slug];
+let freshPassword = false;
+if (forced) { password = forced; }
+if (!password) { password = genPassword(); freshPassword = true; }
+store[slug] = password;
+saveStore(store);
+
+// ── encrypt ─────────────────────────────────────────────────────────
+const plaintext = readFileSync(absInput, 'utf8');
+const wrapper = readFileSync(join(ROOT, 'templates', 'secure-wrapper.html'), 'utf8');
+const encrypted = await encryptHtml(plaintext, password, wrapper);
+const outPath = join(ROOT, 'docs', `${slug}.html`);
+writeFileSync(outPath, encrypted);
+
+// ── commit + push ───────────────────────────────────────────────────
+let pushed = false, hasRemote = false;
+try {
+  git(['add', join('docs', `${slug}.html`)]);
+  try { git(['commit', '-m', `publish: ${slug}`]); }
+  catch { /* nothing changed since last publish */ }
+  try { git(['remote', 'get-url', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); hasRemote = true; }
+  catch { hasRemote = false; }
+  if (hasRemote) {
+    git(['push', '-u', 'origin', 'HEAD'], { stdio: 'inherit' });
+    pushed = true;
+  }
+} catch (e) {
+  console.error('git step warning: ' + (e.message || e));
+}
+
+// ── report ──────────────────────────────────────────────────────────
+const cfg = JSON.parse(readFileSync(join(ROOT, 'desk.config.json'), 'utf8'));
+const url = `${cfg.pagesBase}/${slug}.html`;
+
+console.log('\n✓ Encrypted page written to docs/' + slug + '.html');
+console.log('\n  Link:     ' + url);
+console.log('  Password: ' + password + (freshPassword ? '  (new — save this)' : '  (reused)'));
+if (pushed) {
+  console.log('\n  Live in ~1 min (GitHub Pages build). Send the link and password separately.');
+} else if (!hasRemote) {
+  console.log('\n  Committed locally. Run bin/setup once to connect GitHub, then it goes live.');
+}
+console.log('');

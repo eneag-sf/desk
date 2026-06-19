@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+// Start a new document from the base template.
+//
+//   bin/new <domain/path> <slug> ["Page Title"]
+//
+// Examples:
+//   bin/new sales/<client> proposal "Proposal"
+//   bin/new architecture solution-overview "Solution Overview"
+// Keep real client names out of tracked paths/slugs — use a neutral folder + opaque slug.
+//
+// Creates work/<domain/path>/<slug>.html (private, local-only) and prints
+// the path. When it's ready, publish it with: bin/publish <that path> <slug>
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+function die(msg) { console.error('\n✗ ' + msg + '\n'); process.exit(1); }
+
+const [domain, slug, ...titleParts] = process.argv.slice(2);
+if (!domain || !slug) die('usage: bin/new <domain/path> <slug> ["Page Title"]');
+if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) die(`slug "${slug}" must be lowercase letters, digits and dashes`);
+
+const title = titleParts.join(' ') || slug;
+const dir = join(ROOT, 'work', domain);
+const out = join(dir, `${slug}.html`);
+if (existsSync(out)) die(`already exists: work/${domain}/${slug}.html`);
+
+const today = new Date().toISOString().slice(0, 10);
+const tpl = readFileSync(join(ROOT, 'templates', 'page.html'), 'utf8')
+  .replaceAll('{{TITLE}}', title)
+  .replaceAll('{{DATE}}', today)
+  .replaceAll('{{EYEBROW}}', domain.split('/').join(' · '));
+
+mkdirSync(dir, { recursive: true });
+writeFileSync(out, tpl);
+
+console.log(`\n✓ Created work/${domain}/${slug}.html`);
+console.log(`  Edit it, then publish:  bin/publish work/${domain}/${slug}.html ${slug}\n`);
