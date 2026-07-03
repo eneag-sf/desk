@@ -15,19 +15,26 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# build and deploy are separate jobs so "re-run failed jobs" only reruns the
+# deploy: rerunning an upload step adds a second artifact with the same name
+# to the run, which deploy-pages rejects ("Artifact count is 2").
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
-          name: desk-pages   # unique name; legacy pipeline's "github-pages" artifact collides
+          name: desk-pages   # unique name; legacy pipeline used "github-pages"
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
         with:
