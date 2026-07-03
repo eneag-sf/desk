@@ -27,5 +27,8 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+          name: desk-pages   # unique name; legacy pipeline's "github-pages" artifact collides
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: desk-pages
