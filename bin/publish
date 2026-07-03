@@ -3,11 +3,13 @@
 //
 //   bin/publish <input.html> <slug> [--password <pw>]
 //
-// - Encrypts the file with ONE friendly, memorable password shared across ALL
-//   your pages — so you (and colleagues) only ever remember a single password.
-//   Set your own with --password "your phrase"; otherwise a memorable word-style
-//   password is generated the first time and reused everywhere after.
-// - Writes the encrypted page to docs/<slug>.html, commits, and pushes.
+// - A page that was already published keeps the password it was first shared
+//   with — re-publishing NEVER silently changes it. New pages get the shared
+//   house password. --password explicitly sets this page's password and
+//   becomes the shared default for future new pages.
+// - Writes the encrypted page to docs/<slug>/index.html (clean URL without
+//   .html). Pages first published as flat docs/<slug>.html keep that path so
+//   links already shared never break. Commits and pushes.
 // - Prints the shareable link and the password.
 import { webcrypto as crypto } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -65,32 +67,41 @@ if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
 const absInput = resolve(ROOT, inputPath);
 if (!existsSync(absInput)) die(`input file not found: ${inputPath}`);
 
-// ── url + password (reuse > forced > generate) ──────────────────────
+// ── url + password (page keeps its own > forced > house > generate) ─
+// New pages live at docs/<slug>/index.html → clean /<slug>/ URL. A page that
+// already exists as flat docs/<slug>.html keeps that file and URL forever —
+// recipients hold that exact link.
 const cfg = JSON.parse(readFileSync(join(ROOT, 'desk.config.json'), 'utf8'));
-const url = `${cfg.pagesBase}/${slug}.html`;
+const legacyFlat = existsSync(join(ROOT, 'docs', `${slug}.html`));
+const url = legacyFlat ? `${cfg.pagesBase}/${slug}.html` : `${cfg.pagesBase}/${slug}/`;
+const relOut = legacyFlat ? join('docs', `${slug}.html`) : join('docs', slug, 'index.html');
 
 const store = loadStore();
-const HOUSE = '_house';                 // the single shared password for every page
+const HOUSE = '_house';                 // shared default password for NEW pages
 let house = typeof store[HOUSE] === 'string' ? store[HOUSE] : store[HOUSE] && store[HOUSE].password;
 let freshPassword = false;
-if (forced) { house = forced; }         // --password sets/replaces the shared password
+if (forced) { house = forced; }         // --password replaces the shared default
 if (!house) { house = genFriendly(); freshPassword = true; }  // friendly default, first time only
 store[HOUSE] = house;
-const password = house;                 // same memorable password across all pages
-store[slug] = { url, password };        // per-page record (kept for reference)
+// An already-published page keeps the password its recipients were given —
+// re-publishing must never lock them out. --password overrides explicitly.
+const existing = store[slug] && store[slug].password;
+const password = forced || existing || house;
+store[slug] = { url, password };        // per-page record (authoritative on republish)
 saveStore(store);
 
 // ── encrypt ─────────────────────────────────────────────────────────
 const plaintext = readFileSync(absInput, 'utf8');
 const wrapper = readFileSync(join(ROOT, 'templates', 'secure-wrapper.html'), 'utf8');
 const encrypted = await encryptHtml(plaintext, password, wrapper);
-const outPath = join(ROOT, 'docs', `${slug}.html`);
+const outPath = join(ROOT, relOut);
+mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(outPath, encrypted);
 
 // ── commit + push ───────────────────────────────────────────────────
 let pushed = false, hasRemote = false;
 try {
-  git(['add', join('docs', `${slug}.html`)]);
+  git(['add', relOut]);
   try { git(['commit', '-m', `publish: ${slug}`]); }
   catch { /* nothing changed since last publish */ }
   try { git(['remote', 'get-url', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); hasRemote = true; }
@@ -104,11 +115,13 @@ try {
 }
 
 // ── report ──────────────────────────────────────────────────────────
-console.log('\n✓ Encrypted page written to docs/' + slug + '.html');
+console.log('\n✓ Encrypted page written to ' + relOut);
 console.log('\n  Link:     ' + url);
 console.log('  Password: ' + password + (freshPassword
   ? '  (your memorable password — used for every page; save it)'
-  : '  (your shared password)'));
+  : password === house
+    ? '  (your shared password)'
+    : '  (this page\'s original password — kept on republish)'));
 if (pushed) {
   console.log('\n  Live in ~1 min (GitHub Pages build). Send the link and password separately.');
 } else if (!hasRemote) {

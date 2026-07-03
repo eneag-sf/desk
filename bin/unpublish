@@ -3,9 +3,10 @@
 //
 //   bin/unpublish <slug>
 //
-// Removes docs/<slug>.html, commits, and pushes. The link goes dead.
+// Removes the published page (docs/<slug>/index.html, or legacy
+// docs/<slug>.html), commits, and pushes. The link goes dead.
 // The saved password is kept so you can republish later with the same one.
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -23,10 +24,14 @@ function git(args, opts = {}) {
 const slug = process.argv[2];
 if (!slug) die('usage: bin/unpublish <slug>');
 
-const rel = join('docs', `${slug}.html`);
-if (!existsSync(join(ROOT, rel))) die(`not published: docs/${slug}.html does not exist`);
+const flat = join('docs', `${slug}.html`);
+const nested = join('docs', slug, 'index.html');
+const rel = existsSync(join(ROOT, flat)) ? flat
+          : existsSync(join(ROOT, nested)) ? nested
+          : die(`not published: neither docs/${slug}.html nor docs/${slug}/index.html exists`);
 
 git(['rm', rel]);
+if (rel === nested) { try { rmSync(join(ROOT, 'docs', slug), { recursive: true, force: true }); } catch {} }
 git(['commit', '-m', `unpublish: ${slug}`]);
 
 let pushed = false;

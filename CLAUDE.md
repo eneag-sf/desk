@@ -30,7 +30,7 @@ bin/            publish · unpublish · new · setup   (the only commands you ru
 bin/lib/        encrypt.mjs — zero-dep AES-GCM encryptor (Web Crypto)
 templates/      page.html (base doc) · secure-wrapper.html (browser decrypt shell)
 work/           PRIVATE, local-only. Drafts by domain: building/ architecture/ sales/ misc/
-work/.desk/     passwords.json — ONE shared memorable password (key `_house`) + per-page records, git-ignored
+work/.desk/     passwords.json — shared default password for new pages (key `_house`) + authoritative per-page records, git-ignored
 docs/           PUBLIC. Encrypted published pages only. Served by GitHub Pages from /docs
 desk.config.json  owner/repo/pagesBase used to build share URLs
 ```
@@ -40,12 +40,15 @@ desk.config.json  owner/repo/pagesBase used to build share URLs
 ```bash
 bin/new <domain/path> <slug> ["Title"]   # scaffold work/<domain>/<slug>.html from template
 bin/publish <input.html> <slug>          # encrypt → docs/<slug>.html → commit → push → print link+password
-bin/publish <input.html> <slug> --password <pw>   # set/replace the ONE shared memorable password (used for every page)
+bin/publish <input.html> <slug> --password <pw>   # set THIS page's password (also becomes the default for future new pages)
 bin/unpublish <slug>                     # remove the page, push; link goes dead
 bin/setup [<git-remote-url>]             # one-time GitHub connection (no arg = print instructions)
 ```
 
-Published URL pattern: `https://eneag-sf.github.io/desk/<slug>.html`
+Published URL pattern (base comes from `desk.config.json`): new pages get clean
+extension-less URLs `https://eneagjoka.com/desk/<slug>/` (file at `docs/<slug>/index.html`);
+pages first published as flat `docs/<slug>.html` keep `…/<slug>.html` forever so
+already-shared links never break.
 
 ## How crypto works (keep both sides in sync)
 
@@ -58,6 +61,8 @@ hash, or cipher in one file you MUST change the other or every page fails to dec
 
 1. The source must be a full standalone HTML file under `work/` (use `bin/new` or write one).
 2. Pick a stable kebab-case `slug` — re-using it keeps the same URL + password.
+   A page always keeps the password it was first published with (re-publishing
+   never changes it); only an explicit `--password` on that slug can.
 3. Run `bin/publish`. Relay the **link and password on separate lines** and remind the
    user to send the password through a different channel than the link.
 4. To update: edit the `work/` file and run `bin/publish` again with the same slug.
