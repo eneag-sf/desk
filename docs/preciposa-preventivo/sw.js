@@ -2,7 +2,7 @@
    La pagina è cifrata: la password resta nel localStorage del dispositivo,
    quindi dopo il primo sblocco si apre anche senza rete. */
 
-const CACHE = 'preciposa-v1';
+const CACHE = 'preciposa-eb140325e9';
 const RISORSE = [
   './',
   './manifest.webmanifest',
@@ -34,8 +34,11 @@ self.addEventListener('fetch', (evento) => {
 
   // Documenti: prima la rete (per prendere gli aggiornamenti), poi la cache.
   if (richiesta.mode === 'navigate') {
+    // `cache: 'reload'` salta la cache HTTP del browser: senza, una pagina
+    // ancora "fresca" per GitHub Pages terrebbe l'utente su una versione
+    // vecchia dell'app anche dopo la pubblicazione.
     evento.respondWith(
-      fetch(richiesta)
+      fetch(new Request(richiesta.url, { cache: 'reload', credentials: 'same-origin' }))
         .then((risposta) => {
           const copia = risposta.clone();
           caches.open(CACHE).then((cache) => cache.put('./', copia));
