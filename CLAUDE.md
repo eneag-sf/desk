@@ -41,9 +41,31 @@ desk.config.json  owner/repo/pagesBase used to build share URLs
 bin/new <domain/path> <slug> ["Title"]   # scaffold work/<domain>/<slug>.html from template
 bin/publish <input.html> <slug>          # encrypt → docs/<slug>.html → commit → push → print link+password
 bin/publish <input.html> <slug> --password <pw>   # set THIS page's password (also becomes the default for future new pages)
+bin/publish <input.html> <slug> --wrapper <file>  # use a different decrypt shell (see "Installable web apps")
 bin/unpublish <slug>                     # remove the page, push; link goes dead
 bin/setup [<git-remote-url>]             # one-time GitHub connection (no arg = print instructions)
 ```
+
+## Installable web apps (PWA pages)
+
+A published page can be a real app the user installs on the iPhone home screen.
+Two things differ from a normal document:
+
+1. **Wrapper**: publish with `--wrapper templates/secure-wrapper-app.html`. iOS reads
+   `<link rel="manifest">` and the `apple-mobile-web-app-*` meta tags from the page it
+   is *served*, which is the (plaintext) wrapper — putting them only inside the
+   encrypted document is too late. The wrapper carries no private data: app name and
+   icons only. It also registers the service worker before unlock.
+2. **Companion files**: `manifest.webmanifest`, `sw.js` and `icons/` sit next to
+   `docs/<slug>/index.html`, unencrypted, and must be committed separately
+   (`bin/publish` only adds the page itself).
+
+Everything else is unchanged: same encryption, same password rules, same URL.
+After unlocking once, the password is remembered in `localStorage`; a home-screen
+web app has its own storage, so the user types it one more time there.
+
+Live example: `preciposa-preventivo` — source in the
+`Preci Preventivo` repo under `web/`, built with `node web/build.mjs`.
 
 Published URL pattern (base comes from `desk.config.json`): new pages get clean
 extension-less URLs `https://eneagjoka.com/desk/<slug>/` (file at `docs/<slug>/index.html`);
