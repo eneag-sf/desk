@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Publish a local HTML file as a password-protected page on GitHub Pages.
 //
-//   bin/publish <input.html> <slug> [--password <pw>]
+//   bin/publish <input.html> <slug> [--password <pw>] [--wrapper <file>]
 //
 // - A page that was already published keeps the password it was first shared
 //   with — re-publishing NEVER silently changes it. New pages get the shared
@@ -10,6 +10,10 @@
 // - Writes the encrypted page to docs/<slug>/index.html (clean URL without
 //   .html). Pages first published as flat docs/<slug>.html keep that path so
 //   links already shared never break. Commits and pushes.
+// - --wrapper picks a different decrypt shell (default: templates/secure-wrapper.html).
+//   Use templates/secure-wrapper-app.html for pages that are installable web
+//   apps: iOS reads the manifest and apple-* meta tags from the wrapper, which
+//   is served in plaintext, so they must live there and not only in the page.
 // - Prints the shareable link and the password.
 import { webcrypto as crypto } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -52,14 +56,15 @@ function saveStore(store) {
 
 // ── args ────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
-let inputPath, slug, forced;
+let inputPath, slug, forced, wrapperPath;
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--password') { forced = argv[++i]; }
+  else if (argv[i] === '--wrapper') { wrapperPath = argv[++i]; }
   else if (!inputPath) { inputPath = argv[i]; }
   else if (!slug) { slug = argv[i]; }
 }
 if (!inputPath || !slug) {
-  die('usage: bin/publish <input.html> <slug> [--password <pw>]');
+  die('usage: bin/publish <input.html> <slug> [--password <pw>] [--wrapper <file>]');
 }
 if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
   die(`slug "${slug}" must be lowercase letters, digits and dashes only`);
@@ -92,7 +97,11 @@ saveStore(store);
 
 // ── encrypt ─────────────────────────────────────────────────────────
 const plaintext = readFileSync(absInput, 'utf8');
-const wrapper = readFileSync(join(ROOT, 'templates', 'secure-wrapper.html'), 'utf8');
+const wrapperFile = wrapperPath
+  ? resolve(ROOT, wrapperPath)
+  : join(ROOT, 'templates', 'secure-wrapper.html');
+if (!existsSync(wrapperFile)) die(`wrapper not found: ${wrapperPath}`);
+const wrapper = readFileSync(wrapperFile, 'utf8');
 const encrypted = await encryptHtml(plaintext, password, wrapper);
 const outPath = join(ROOT, relOut);
 mkdirSync(dirname(outPath), { recursive: true });
