@@ -2,7 +2,7 @@
    La pagina è cifrata: la password resta nel localStorage del dispositivo,
    quindi dopo il primo sblocco si apre anche senza rete. */
 
-const CACHE = 'preciposa-2c0f2c819e';
+const CACHE = 'preciposa-7d9dc3b800';
 const RISORSE = [
   './',
   './manifest.webmanifest',
