@@ -6,7 +6,7 @@
    pubblicazione nuova installa un service worker nuovo, che prende subito il
    controllo e cancella le cache vecchie. */
 
-const CACHE = 'kristicasaarte-7c135be5fb';
+const CACHE = 'kristicasaarte-d2fba6055c';
 const RISORSE = [
   './',
   './manifest.webmanifest',
