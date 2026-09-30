@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="sq">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Keep protected pages out of search engines. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Kristi Casa Arte</title>
+
+  <!-- PWA: these live in the PLAINTEXT wrapper on purpose. iOS reads the
+       manifest and the apple-* meta tags from the served document when the
+       user taps "Add to Home Screen", which can happen before the page is
+       unlocked. They contain no private data — only the app's name and icons.
+       Variant of secure-wrapper-app.html styled for Kristi Casa Arte
+       (cream paper with the house-and-K logo, Albanian); the unlock logic is identical. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kristi Casa">
+  <meta name="theme-color" content="#EFE7DB">
+
+  <style>
+    :root { color-scheme: light; }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      display:grid;place-items:center;padding:24px;
+      font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      color:#26201A;
+      background:radial-gradient(120% 90% at 50% 38%,#F6F1E8 0%,#EFE7DB 55%,#E3D7C6 100%);
+      -webkit-font-smoothing:antialiased;
+    }
+    .card{width:100%;max-width:340px;text-align:center;position:relative}
+    .card::before{
+      content:"";position:absolute;left:50%;top:95px;width:440px;height:440px;margin:-220px 0 0 -220px;
+      border-radius:50%;pointer-events:none;
+      background:radial-gradient(circle,rgba(255,250,240,.95) 0%,rgba(255,247,232,.5) 34%,transparent 66%);
+    }
+    .emblema{position:relative;width:200px;height:auto;display:block;margin:0 auto;
+      filter:drop-shadow(0 16px 20px rgba(94,58,31,.14))}
+    .scritta{position:relative;width:270px;height:auto;display:block;margin:18px auto 30px}
+    p.sub{position:relative;margin:0 0 14px;color:#6A5F4F;font-size:14px}
+    input[type=password]{
+      width:100%;padding:14px 15px;font-size:16px;text-align:center;
+      border-radius:14px;border:1px solid #E6DAC5;background:#fff;color:#26201A;
+      outline:none;transition:border-color .15s,box-shadow .15s;
+    }
+    input[type=password]::placeholder{color:#857761}
+    input[type=password]:focus{border-color:#7A4F2E;box-shadow:0 0 0 3px rgba(122,79,46,.14)}
+    button{
+      width:100%;margin-top:12px;padding:15px;font-size:17px;font-weight:600;
+      border:0;border-radius:14px;cursor:pointer;color:#fff;
+      background:linear-gradient(135deg,#7A4F2E,#5E3A1F);
+      box-shadow:0 10px 22px -10px rgba(122,79,46,.7);
+      transition:transform .15s,opacity .15s;
+    }
+    button:active{transform:scale(.97)}
+    button:disabled{opacity:.6;cursor:default}
+    .err{color:#C0492F;font-size:13.5px;margin:14px 0 0;min-height:1.2em}
+    .remember{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;color:#6A5F4F;font-size:13px;cursor:pointer}
+    .remember input{width:18px;height:18px;margin:0;accent-color:#7A4F2E}
+    .spinner{display:none}
+    .loading .form,.loading p.sub{display:none}
+    .loading .spinner{display:block;position:relative;color:#6A5F4F;font-size:14px;margin-top:4px}
+  </style>
+</head>
+<body>
+  <main class="card" id="card">
+    <img class="emblema" src="icons/logo-splash.png" alt="Kristi Casa Arte" width="200" height="182">
+    <img class="scritta" src="icons/logo-scritta.png" alt="" width="270" height="49">
+    <p class="sub" id="sub">Fut fjalëkalimin për të hapur aplikacionin.</p>
+    <form id="form" class="form" autocomplete="off">
+      <input id="pw" type="password" autocomplete="current-password" autofocus placeholder="Fjalëkalimi" aria-label="Fjalëkalimi">
+      <button id="btn" type="submit">Hap</button>
+      <label class="remember"><input type="checkbox" id="remember" checked> Mbaj mend në këtë pajisje</label>
+      <p class="err" id="err" role="alert"></p>
+    </form>
+    <div class="spinner" id="spinner">Po hap&hellip;</div>
+  </main>
+
+  <script id="desk-payload" type="application/json">__DESK_PAYLOAD__</script>
+  <script>
+  (function () {
+    var cfg = JSON.parse(document.getElementById('desk-payload').textContent);
+    var card = document.getElementById('card');
+    var form = document.getElementById('form');
+    var pw = document.getElementById('pw');
+    var err = document.getElementById('err');
+    var btn = document.getElementById('btn');
+    var rememberBox = document.getElementById('remember');
+    var KEY = 'desk-unlock:' + location.pathname;
+
+    // The app stays available offline even before unlocking, and a newly
+    // published version is looked for straight away.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        reg.update().catch(function () {});
+      }).catch(function () {});
+    }
+
+    function b64ToBytes(b64) {
+      var bin = atob(b64), out = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function getSaved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function save(p) { try { localStorage.setItem(KEY, p); } catch (e) {} }
+    function forget() { try { localStorage.removeItem(KEY); } catch (e) {} }
+
+    async function decrypt(password) {
+      var enc = new TextEncoder();
+      var baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+      var key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: b64ToBytes(cfg.salt), iterations: cfg.iter, hash: 'SHA-256' },
+        baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      var ptBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: b64ToBytes(cfg.iv) }, key, b64ToBytes(cfg.ct));
+      return new TextDecoder().decode(ptBuf);
+    }
+    function render(htmlText) { document.open(); document.write(htmlText); document.close(); }
+
+    if (!(window.crypto && window.crypto.subtle)) {
+      err.textContent = 'Ky shfletues nuk mund ta hapë faqen (duhet https).';
+      return;
+    }
+
+    // Already unlocked on this device? It opens by itself.
+    var saved = getSaved();
+    if (saved) {
+      card.classList.add('loading');
+      decrypt(saved).then(render).catch(function () {
+        forget();
+        card.classList.remove('loading');
+        pw.focus();
+      });
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      err.textContent = '';
+      btn.disabled = true; btn.textContent = 'Po hap…';
+      try {
+        var htmlText = await decrypt(pw.value);
+        if (rememberBox.checked) save(pw.value); else forget();
+        render(htmlText);
+      } catch (ex) {
+        err.textContent = 'Fjalëkalim i gabuar — provo sërish.';
+        btn.disabled = false; btn.textContent = 'Hap';
+        pw.select();
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
