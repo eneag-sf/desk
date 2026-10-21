@@ -111,7 +111,8 @@ writeFileSync(outPath, encrypted);
 let pushed = false, hasRemote = false;
 try {
   git(['add', relOut]);
-  try { git(['commit', '-m', `publish: ${slug}`]); }
+  // Neutral message: the repo is public and slugs often name a client.
+  try { git(['commit', '-m', 'publish: update']); }
   catch { /* nothing changed since last publish */ }
   try { git(['remote', 'get-url', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); hasRemote = true; }
   catch { hasRemote = false; }

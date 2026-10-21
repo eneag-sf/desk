@@ -58,7 +58,8 @@ Two things differ from a normal document:
    icons only. It also registers the service worker before unlock.
 2. **Companion files**: `manifest.webmanifest`, `sw.js` and `icons/` sit next to
    `docs/<slug>/index.html`, unencrypted, and must be committed separately
-   (`bin/publish` only adds the page itself).
+   (`bin/publish` only adds the page itself). Use the message `publish: assets`
+   — never the slug or a description of the change (see Conventions).
 
 Everything else is unchanged: same encryption, same password rules, same URL.
 After unlocking once, the password is remembered in `localStorage`; a home-screen
@@ -96,3 +97,6 @@ hash, or cipher in one file you MUST change the other or every page fails to dec
 - Slugs: lowercase letters, digits, dashes only (enforced by the scripts).
 - Client-specific work goes under `work/sales/<client>/`. Real client names live only in
   `work/` (git-ignored) — never in tracked files, commit messages, or published slugs/URLs.
+- Commit messages are always generic (`publish: update`, `publish: assets`, `chore: …`).
+  Existing slugs already name clients, so a slug in a message puts that name on the
+  public repo's front page. `bin/publish` and `bin/unpublish` follow this automatically.

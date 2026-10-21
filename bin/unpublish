@@ -32,7 +32,7 @@ const rel = existsSync(join(ROOT, flat)) ? flat
 
 git(['rm', rel]);
 if (rel === nested) { try { rmSync(join(ROOT, 'docs', slug), { recursive: true, force: true }); } catch {} }
-git(['commit', '-m', `unpublish: ${slug}`]);
+git(['commit', '-m', 'unpublish: remove page']);
 
 let pushed = false;
 try { git(['remote', 'get-url', 'origin'], { stdio: ['pipe', 'pipe', 'ignore'] }); pushed = true; }
