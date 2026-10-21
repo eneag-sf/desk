@@ -64,8 +64,8 @@ Everything else is unchanged: same encryption, same password rules, same URL.
 After unlocking once, the password is remembered in `localStorage`; a home-screen
 web app has its own storage, so the user types it one more time there.
 
-Live example: `preciposa-preventivo` — source in the
-`Preci Preventivo` repo under `web/`, built with `node web/build.mjs`.
+Live examples: any `docs/<slug>/` folder with a `manifest.webmanifest`. Each app's
+source and build step live in its own repo, outside this one.
 
 Published URL pattern (base comes from `desk.config.json`): new pages get clean
 extension-less URLs `https://eneagjoka.com/desk/<slug>/` (file at `docs/<slug>/index.html`);
